@@ -9,8 +9,11 @@ import (
 	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	corev1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apis "github.com/app-sre/deployment-validation-operator/api"
 	dvconfig "github.com/app-sre/deployment-validation-operator/config"
@@ -146,6 +149,20 @@ func setupManager(log logr.Logger, opts options.Options) (manager.Manager, error
 	}
 
 	log.Info("Initializing Validation Engine")
+
+	// Setting up a controller to handle ConfigMaps update
+	ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.ConfigMap{}).
+		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			// it only watches for the specific ConfigMap in the desired namespace
+			// this should connect with DVO configmap's name/namespace
+			cm, ok := obj.(*corev1.ConfigMap)
+			if !ok {
+				return false
+			}
+			return cm.Namespace == "default" && cm.Name == "testestest"
+		})).
+		Complete(&controller.ConfigMapController{})
 
 	if err := validations.InitializeValidationEngine(opts.ConfigFile, reg); err != nil {
 		return nil, fmt.Errorf("initializing validation engine: %w", err)
