@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,11 +10,12 @@ import (
 	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	corev1 "k8s.io/api/core/v1"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apis "github.com/app-sre/deployment-validation-operator/api"
 	dvconfig "github.com/app-sre/deployment-validation-operator/config"
@@ -150,19 +152,24 @@ func setupManager(log logr.Logger, opts options.Options) (manager.Manager, error
 
 	log.Info("Initializing Validation Engine")
 
+	// New option with active channel
+	go confWatcher(cfg)
+
+	// Previous option with controllers
+	///////////////////
 	// Setting up a controller to handle ConfigMaps update
-	ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.ConfigMap{}).
-		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
-			// it only watches for the specific ConfigMap in the desired namespace
-			// this should connect with DVO configmap's name/namespace
-			cm, ok := obj.(*corev1.ConfigMap)
-			if !ok {
-				return false
-			}
-			return cm.Namespace == "default" && cm.Name == "testestest"
-		})).
-		Complete(&controller.ConfigMapController{})
+	// ctrl.NewControllerManagedBy(mgr).
+	// 	For(&corev1.ConfigMap{}).
+	// 	WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+	// 		// it only watches for the specific ConfigMap in the desired namespace
+	// 		// this should connect with DVO configmap's name/namespace
+	// 		cm, ok := obj.(*corev1.ConfigMap)
+	// 		if !ok {
+	// 			return false
+	// 		}
+	// 		return cm.Namespace == "default" && cm.Name == "testestest"
+	// 	})).
+	// 	Complete(&controller.ConfigMapController{})
 
 	if err := validations.InitializeValidationEngine(opts.ConfigFile, reg); err != nil {
 		return nil, fmt.Errorf("initializing validation engine: %w", err)
@@ -253,4 +260,50 @@ func kubeClientQPS() (float32, error) {
 	}
 	qps = float32(val)
 	return qps, err
+}
+
+func confWatcher(cfg *rest.Config) error {
+	// Retrieving configuration ConfigMap
+	gatherKubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return errors.New("kubernetes.NewForConfig")
+	}
+	coreClient := gatherKubeClient.CoreV1()
+	watcher, err := coreClient.ConfigMaps("default").Watch(context.Background(),
+		v1.SingleObject(v1.ObjectMeta{
+			Name: "testestest", Namespace: "default"}))
+	if err != nil {
+		return errors.New("coreClient.ConfigMaps().Watch")
+	}
+
+	for {
+		event, open := <-watcher.ResultChan()
+
+		if open {
+
+			switch event.Type {
+
+			case watch.Added:
+				fallthrough
+			case watch.Modified:
+				fmt.Print("\n\n\nConfigmap updated!\n\n")
+				configmap := event.Object
+
+				fmt.Printf("configmap: %v\n", configmap)
+
+				// TODO
+				//
+				// Update validations
+				//
+				/////////
+
+			default:
+				// ignore other events?
+			}
+
+		} else {
+			return nil
+		}
+
+	}
 }
