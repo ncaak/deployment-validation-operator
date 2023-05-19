@@ -8,14 +8,18 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	toolscache "k8s.io/client-go/tools/cache"
 
 	apis "github.com/app-sre/deployment-validation-operator/api"
 	dvconfig "github.com/app-sre/deployment-validation-operator/config"
@@ -152,10 +156,45 @@ func setupManager(log logr.Logger, opts options.Options) (manager.Manager, error
 
 	log.Info("Initializing Validation Engine")
 
-	// New option with active channel
-	go confWatcher(cfg)
+	// New option with informer
+	gatherKubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("initializing clientset: %w", err)
+	}
+
+	// informers.WithNamespace("default")
+	// factory := informers.NewSharedInformerFactory(gatherKubeClient, time.Second*30)
+	factory := informers.NewSharedInformerFactoryWithOptions(gatherKubeClient, time.Second*30, informers.WithNamespace("default"))
+	informer := factory.Core().V1().ConfigMaps().Informer()
+
+	informer.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			fmt.Printf("obj: %v\n", obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldCm := oldObj.(*corev1.ConfigMap)
+			newCm := newObj.(*corev1.ConfigMap)
+
+			fmt.Printf("oldCm: %v\n", oldCm)
+			fmt.Printf("ConfigMap updated: %s/%s\n", newCm.Namespace, newCm.Name)
+
+			// Handle the ConfigMap update event here
+		},
+	})
+
+	factory.Start(context.Background().Done()) // Start processing these informers.
+	synced := factory.WaitForCacheSync(context.Background().Done())
+	for v, ok := range synced {
+		if !ok {
+			fmt.Fprintf(os.Stderr, "caches failed to sync: %v", v)
+			return nil, fmt.Errorf("informer factory: %w", err)
+		}
+	}
 
 	// Previous option with controllers
+	//go confWatcher(cfg)
+
+	// Previous Previous option with controllers
 	///////////////////
 	// Setting up a controller to handle ConfigMaps update
 	// ctrl.NewControllerManagedBy(mgr).
