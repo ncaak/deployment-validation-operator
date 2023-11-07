@@ -1,0 +1,350 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: deployment-validation-operator
+objects:
+ - apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     namespace: ${PROJECT_NAMESPACE}
+     name: ${RESOURCE_NAME}
+     annotations: {}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     replicas: 3
+     template:
+       metadata:
+         labels:
+           app: ${RESOURCE_NAME}
+       spec:
+         containers:
+           - name: container
+             image: >-
+               image-registry.openshift-image-registry.svc:5000/openshift/httpd:latest
+             ports:
+               - containerPort: 8080
+                 protocol: TCP
+             resources:
+               limits:
+                 cpu: 5m
+                 memory: 10Mi
+               requests:
+                 cpu: 5m
+                 memory: 10Mi
+             env: []
+         imagePullSecrets: []
+     strategy:
+       type: RollingUpdate
+       rollingUpdate:
+         maxSurge: 25%
+         maxUnavailable: 25%
+     paused: false
+ - apiVersion: policy/v1
+   kind: PodDisruptionBudget
+   metadata:
+     name: pdb-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+ - apiVersion: v1
+   kind: Service
+   metadata:
+     name: service-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       app: ${RESOURCE_NAME}
+     ports:
+      - protocol: TCP
+        port: 80
+        targetPort: 9376
+ - apiVersion: networking.k8s.io/v1
+   kind: NetworkPolicy
+   metadata:
+     name: np-test-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     podSelector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     policyTypes: []
+ - apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     namespace: ${PROJECT_NAMESPACE}
+     name: ${RESOURCE_NAME}
+     annotations: {}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     replicas: 3
+     template:
+       metadata:
+         labels:
+           app: ${RESOURCE_NAME}
+       spec:
+         containers:
+           - name: container
+             image: >-
+               image-registry.openshift-image-registry.svc:5000/openshift/httpd:latest
+             ports:
+               - containerPort: 8080
+                 protocol: TCP
+             resources:
+               limits:
+                 cpu: 5m
+                 memory: 10Mi
+               requests:
+                 cpu: 5m
+                 memory: 10Mi
+             env: []
+         imagePullSecrets: []
+     strategy:
+       type: RollingUpdate
+       rollingUpdate:
+         maxSurge: 25%
+         maxUnavailable: 25%
+     paused: false
+ - apiVersion: policy/v1
+   kind: PodDisruptionBudget
+   metadata:
+     name: pdb-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+ - apiVersion: v1
+   kind: Service
+   metadata:
+     name: service-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       app: ${RESOURCE_NAME}
+     ports:
+      - protocol: TCP
+        port: 80
+        targetPort: 9376
+ - apiVersion: networking.k8s.io/v1
+   kind: NetworkPolicy
+   metadata:
+     name: np-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     podSelector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     policyTypes: []
+ - apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     namespace: ${PROJECT_NAMESPACE}
+     name: ${RESOURCE_NAME}
+     annotations: {}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     replicas: 3
+     template:
+       metadata:
+         labels:
+           app: ${RESOURCE_NAME}
+       spec:
+         containers:
+           - name: container
+             image: >-
+               image-registry.openshift-image-registry.svc:5000/openshift/httpd:latest
+             ports:
+               - containerPort: 8080
+                 protocol: TCP
+             resources:
+               limits:
+                 cpu: 5m
+                 memory: 10Mi
+               requests:
+                 cpu: 5m
+                 memory: 10Mi
+             env: []
+         imagePullSecrets: []
+     strategy:
+       type: RollingUpdate
+       rollingUpdate:
+         maxSurge: 25%
+         maxUnavailable: 25%
+     paused: false
+ - apiVersion: policy/v1
+   kind: PodDisruptionBudget
+   metadata:
+     name: pdb-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+ - apiVersion: v1
+   kind: Service
+   metadata:
+     name: service-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       app: ${RESOURCE_NAME}
+     ports:
+      - protocol: TCP
+        port: 80
+        targetPort: 9376
+ - apiVersion: networking.k8s.io/v1
+   kind: NetworkPolicy
+   metadata:
+     name: np-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     podSelector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     policyTypes: []
+ - apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     namespace: ${PROJECT_NAMESPACE}
+     name: ${RESOURCE_NAME}
+     annotations: {}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     replicas: 3
+     template:
+       metadata:
+         labels:
+           app: ${RESOURCE_NAME}
+       spec:
+         containers:
+           - name: container
+             image: >-
+               image-registry.openshift-image-registry.svc:5000/openshift/httpd:latest
+             ports:
+               - containerPort: 8080
+                 protocol: TCP
+             resources:
+               limits:
+                 cpu: 5m
+                 memory: 10Mi
+               requests:
+                 cpu: 5m
+                 memory: 10Mi
+             env: []
+         imagePullSecrets: []
+     strategy:
+       type: RollingUpdate
+       rollingUpdate:
+         maxSurge: 25%
+         maxUnavailable: 25%
+     paused: false
+ - apiVersion: policy/v1
+   kind: PodDisruptionBudget
+   metadata:
+     name: pdb-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+ - apiVersion: v1
+   kind: Service
+   metadata:
+     name: service-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       app: ${RESOURCE_NAME}
+     ports:
+      - protocol: TCP
+        port: 80
+        targetPort: 9376
+ - apiVersion: networking.k8s.io/v1
+   kind: NetworkPolicy
+   metadata:
+     name: np-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     podSelector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     policyTypes: []
+ - apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     namespace: ${PROJECT_NAMESPACE}
+     name: ${RESOURCE_NAME}
+     annotations: {}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     replicas: 3
+     template:
+       metadata:
+         labels:
+           app: ${RESOURCE_NAME}
+       spec:
+         containers:
+           - name: container
+             image: >-
+               image-registry.openshift-image-registry.svc:5000/openshift/httpd:latest
+             ports:
+               - containerPort: 8080
+                 protocol: TCP
+             env: []
+         imagePullSecrets: []
+     strategy:
+       type: RollingUpdate
+       rollingUpdate:
+         maxSurge: 25%
+         maxUnavailable: 25%
+     paused: false
+ - apiVersion: policy/v1
+   kind: PodDisruptionBudget
+   metadata:
+     name: pdb-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+ - apiVersion: v1
+   kind: Service
+   metadata:
+     name: service-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     selector:
+       app: ${RESOURCE_NAME}
+     ports:
+      - protocol: TCP
+        port: 80
+        targetPort: 9376
+ - apiVersion: networking.k8s.io/v1
+   kind: NetworkPolicy
+   metadata:
+     name: np-${RESOURCE_NAME}
+     namespace: ${PROJECT_NAMESPACE}
+   spec:
+     podSelector:
+       matchLabels:
+         app: ${RESOURCE_NAME}
+     policyTypes: []
+parameters:
+- name: PROJECT_NAMESPACE
+  value: "test-dvo"
+  required: true
+- name: RESOURCE_NAME
+  value: "test-httpd"
+  required: true

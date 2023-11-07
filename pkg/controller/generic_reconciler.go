@@ -203,17 +203,18 @@ func (gr *GenericReconciler) groupAppObjects(ctx context.Context,
 		return f.Group < s.Group
 	})
 
-	for _, gvk := range gvks {
+	for i := range gvks {
+		// gvk := gvks[i]
 		list := unstructured.UnstructuredList{}
 		listOptions := &client.ListOptions{
 			Limit:     gr.listLimit,
 			Namespace: namespace,
 		}
 		for {
-			list.SetGroupVersionKind(gvk)
+			list.SetGroupVersionKind(gvks[i])
 
 			if err := gr.client.List(ctx, &list, listOptions); err != nil {
-				return nil, fmt.Errorf("listing %s: %w", gvk.String(), err)
+				return nil, fmt.Errorf("listing %s: %w", gvks[i].String(), err)
 			}
 
 			for i := range list.Items {

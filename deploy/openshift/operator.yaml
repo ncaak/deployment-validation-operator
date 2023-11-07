@@ -27,12 +27,6 @@ spec:
           operator: Exists
           effect: NoSchedule
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-role.kubernetes.io/infra
-                operator: Exists
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
           - podAffinityTerm:
@@ -52,10 +46,10 @@ spec:
         - --config /config/deployment-validation-operator-config.yaml
         resources:
           requests:
-            memory: "400Mi"
+            memory: "100Mi"
             cpu: "100m"
           limits:
-            memory: "400Mi"
+            memory: "100Mi"
             cpu: "100m"
         livenessProbe:
           httpGet:
