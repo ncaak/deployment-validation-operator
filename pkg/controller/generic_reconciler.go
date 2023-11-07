@@ -204,10 +204,10 @@ func (gr *GenericReconciler) groupAppObjects(ctx context.Context,
 	})
 
 	for i := range gvks {
-		// gvk := gvks[i]
 		list := unstructured.UnstructuredList{}
 		listOptions := &client.ListOptions{
-			Limit:     gr.listLimit,
+			// Limit:     gr.listLimit,
+			Limit:     1,
 			Namespace: namespace,
 		}
 		for {
