@@ -206,29 +206,37 @@ func (gr *GenericReconciler) groupAppObjects(ctx context.Context,
 	for i := range gvks {
 		list := unstructured.UnstructuredList{}
 		listOptions := &client.ListOptions{
-			// Limit:     gr.listLimit,
-			Limit:     1,
+			Limit:     gr.listLimit,
 			Namespace: namespace,
 		}
-		for {
-			list.SetGroupVersionKind(gvks[i])
+		list.SetGroupVersionKind(gvks[i])
 
+		objects := []unstructured.Unstructured{}
+
+		for {
 			if err := gr.client.List(ctx, &list, listOptions); err != nil {
 				return nil, fmt.Errorf("listing %s: %w", gvks[i].String(), err)
 			}
 
-			for i := range list.Items {
-				obj := &list.Items[i]
-				unstructured.RemoveNestedField(obj.Object, "metadata", "managedFields")
-				processResourceLabels(obj, relatedObjects)
-				gr.processResourceSelectors(obj, relatedObjects)
-			}
+			objects = append(objects, list.Items...)
+			// for i := range list.Items {
+			// obj := &list.Items[i]
+			// unstructured.RemoveNestedField(obj.Object, "metadata", "managedFields")
+			// processResourceLabels(obj, relatedObjects)
+			// gr.processResourceSelectors(obj, relatedObjects)
+			// }
 
 			listContinue := list.GetContinue()
 			if listContinue == "" {
 				break
 			}
 			listOptions.Continue = listContinue
+		}
+
+		for i := range objects {
+			unstructured.RemoveNestedField(objects[i].Object, "metadata", "managedFields")
+			processResourceLabels(&objects[i], relatedObjects)
+			gr.processResourceSelectors(&objects[i], relatedObjects)
 		}
 	}
 	return relatedObjects, nil
