@@ -150,6 +150,18 @@ func setupManager(log logr.Logger, opts options.Options) (manager.Manager, error
 		return nil, fmt.Errorf("adding generic reconciler to manager: %w", err)
 	}
 
+	alt, err := controller.NewAltReconciler(mgr.GetClient(), mgr.GetConfig())
+	if err != nil {
+		return nil, fmt.Errorf("initializing generic reconciler: %w", err)
+	}
+
+	// if err = mgr.Add(alt); err != nil {
+	// 	return nil, fmt.Errorf("adding generic reconciler to manager: %w", err)
+	// }
+	if err = alt.AddToManager(mgr); err != nil {
+		return nil, fmt.Errorf("adding generic reconciler to manager: %w", err)
+	}
+
 	return mgr, nil
 }
 
