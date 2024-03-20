@@ -6,12 +6,14 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/app-sre/deployment-validation-operator/pkg/validations"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/informers"
@@ -23,37 +25,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// GenericReconciler watches a defined object
+// AltReconciler watches a defined object
 type AltReconciler struct {
-	// conf                  *rest.Config
-	// listLimit             int64
-	watchNamespaces *watchNamespacesCache
-	// objectValidationCache *validationCache
-	// currentObjects        *validationCache
-	client    client.Client
-	clientset *kubernetes.Clientset
-	// discovery discovery.DiscoveryInterface
-	logger logr.Logger
-	// cmWatcher             *configmap.Watcher
-	// validationEngine      validations.Interface
-	// apiResources          []metav1.APIResource
-	//dynClient *dynamic.DynamicClient
-	nmCache   map[string]string
-	resources *resourceSet
+	watchNamespaces  *watchNamespacesCache
+	client           client.Client
+	clientset        *kubernetes.Clientset
+	logger           logr.Logger
+	validationEngine validations.Interface
+	nmCache          map[string]string
+	resources        *resourceSet
 }
 
 func NewAltReconciler(
 	client client.Client,
 	cfg *rest.Config,
-	// discoveryClient discovery.DiscoveryInterface,
-	// cmw *configmap.Watcher,
-	// validationEngine validations.Interface
-	// apiResourceLists []*v1.APIResourceList,
+	validationEngine validations.Interface,
 ) (*AltReconciler, error) {
-	// listLimit, err := getListLimit()
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -79,44 +66,28 @@ func NewAltReconciler(
 		return nil, fmt.Errorf("getting getAvailableResourceSet: %w", err)
 	}
 
-	// dc, err := dynamic.NewForConfig(cfg)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("initializing dynamic client: %w", err)
-	// }
-
-	// apiResources, err := reconcileResourceList(gr.discovery, gr.client.Scheme())
-	// if err != nil {
-	// 	gr.logger.Error(err, "retrieving API resources to reconcile")
-	// 	return
-	// }
-	// gr.apiResources = apiResources
-
 	return &AltReconciler{
-		clientset: clientset,
-		client:    client,
-		// discovery: discoveryClient,
-		// listLimit:             listLimit,
-		watchNamespaces: newWatchNamespacesCache(),
-		// objectValidationCache: newValidationCache(),
-		// currentObjects:        newValidationCache(),
-		logger: ctrl.Log.WithName("asdasdasd"),
-		// cmWatcher:             cmw,
-		// validationEngine:      validationEngine,
-		//dynClient: dc,
-		resources: set,
-		nmCache:   make(map[string]string),
+		clientset:        clientset,
+		client:           client,
+		watchNamespaces:  newWatchNamespacesCache(),
+		logger:           ctrl.Log.WithName("AltReconciler"),
+		validationEngine: validationEngine,
+		resources:        set,
+		nmCache:          make(map[string]string),
 	}, nil
 }
 
-func (alt *AltReconciler) asdasd(ctx context.Context) error {
+func (alt *AltReconciler) setWatchers(ctx context.Context) error {
+	// Retrieves valid namespaces
 	namespaces, err := alt.watchNamespaces.getWatchNamespaces(ctx, alt.client)
 	if err != nil {
 		return fmt.Errorf("getting watched namespaces: %w", err)
 	}
 
-	alt.logger.Info("namespaces")
+	// Sets watchers over every Deployment object inside the namespace
+	// Also, sets a cache of namespaces to avoid duplicated watchers
 	for _, namespace := range *namespaces {
-		// alt.logger.Info("new namespace", "id", namespace.uid, "name", namespace.name)
+		alt.logger.Info("new namespace", "id", namespace.uid, "name", namespace.name)
 		_, exists := alt.nmCache[namespace.uid]
 		if !exists {
 			alt.logger.Info("new namespace", "name", namespace.name)
@@ -125,19 +96,12 @@ func (alt *AltReconciler) asdasd(ctx context.Context) error {
 		}
 	}
 
-	// alt.logger.Info("map namespaces", "map", alt.nmCache)
-	alt.logger.Info("/////new namespaces")
 	return nil
 }
 
 func (alt *AltReconciler) checkDeployments(ctx context.Context, namespace string) error {
-	// deployments, err := alt.clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
-	// if err != nil {
-	// 	return fmt.Errorf("getting deplyoments: %w", err)
-	// }
 
-	// fmt.Printf("deployments: %v\n", deployments)
-	// return nil
+	// Sets functions to the watchers, Currently only using Add as it gets triggered once
 	factory := informers.NewSharedInformerFactoryWithOptions(
 		alt.clientset, time.Second*30, informers.WithNamespace(namespace),
 	)
@@ -150,30 +114,21 @@ func (alt *AltReconciler) checkDeployments(ctx context.Context, namespace string
 
 			alt.logger.Info("new deployment", "name", newCm.Name, "namespace", namespace)
 
+			// Gets GVK of only namespaced resources
+			// alt.resources works as a dictionary of types of objects available in the cluster
 			gvkResources := alt.getNamespacedResourcesGVK(alt.resources.ToSlice())
 
 			// Get the labels of the Deployment
-			deploymentLabels := newCm.GetLabels()
+			// This is not being used now, as test templates only use selector
+			// But it could be used as in the groupAppObjects function (generic reconciler)
+			// deploymentLabels := newCm.GetLabels()
+			// alt.logger.Info("deployment labels", "labels", deploymentLabels)
 
 			// Create a label selector for the Deployment labels
-			selector := labels.Set(deploymentLabels).AsSelector()
+			selector := labels.Set(newCm.Spec.Selector.MatchLabels).AsSelector()
+			alt.logger.Info("deployment labels", "selector", selector)
 
-			// resource := schema.GroupVersionResource{
-			// 	Group:    newCm.GetObjectKind().GroupVersionKind().Group,
-			// 	Version:  newCm.GetResourceVersion(),
-			// 	Resource: "deployments",
-			// }
-			// resource1 := newCm.GroupVersionKind().GroupVersion().WithResource("deployments")
-			// MatchLabels := newCm.Spec.Selector.MatchLabels
-
-			// dc, err := alt.dynClient.Resource(
-			// 	resource).Namespace(newCm.Namespace).List(
-			// 	context.Background(), metav1.ListOptions{LabelSelector: selector.String()},
-			// )
-			// if err != nil {
-			// 	alt.logger.Error(err, "trying to retrieve Deployment resources", "resource", resource)
-			// }
-
+			objects := make([]*unstructured.Unstructured, 0)
 			for _, gvk := range gvkResources {
 
 				list := unstructured.UnstructuredList{}
@@ -182,12 +137,40 @@ func (alt *AltReconciler) checkDeployments(ctx context.Context, namespace string
 					Namespace:     newCm.Namespace,
 					LabelSelector: selector,
 				}
+				// Gets only objects matching the labels/selector of the Deployment
+				// No need of filtering out objects or matching manually for label/selector
 				if err := alt.client.List(ctx, &list, listOptions); err != nil {
 					alt.logger.Error(err, "trying to retrieve Deployment resources")
 					return
 				}
-				alt.logger.Info("deployment resources", "gvk", gvk, "resources", len(list.Items))
+				if len(list.Items) > 0 {
+					for _, obj := range list.Items {
+						objects = append(objects, &obj)
+					}
+				}
+
+				//alt.logger.Info("deployment resources", "gvk", gvk, "resources", len(list.Items))
 			}
+
+			// Copied from the generic reconciler, normalizing the objects with type
+			cliObjects := make([]client.Object, 0, len(objects))
+			for _, o := range objects {
+				typedClientObject, err := alt.unstructuredToTyped(o)
+				if err != nil {
+					alt.logger.Error(err, "instantiating typed object:")
+					return
+				}
+				cliObjects = append(cliObjects, typedClientObject)
+			}
+
+			// Running the validations
+			outcome, err := alt.validationEngine.RunValidationsForObjects(cliObjects, "99ffdd0b-a4c4-42e3-89c7-3d99d91d4d2b")
+			if err != nil {
+				alt.logger.Error(err, "running validations")
+				return
+			}
+			alt.logger.Info("deployment resources", "objects", len(objects), "outcome", outcome)
+
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			newCm := newObj.(*appsv1.Deployment)
@@ -212,15 +195,6 @@ func (alt *AltReconciler) checkDeployments(ctx context.Context, namespace string
 }
 
 func getAvailableResourceSet(set *resourceSet, resList []*v1.APIResourceList) error {
-	// func reconcileResourceList(client discovery.DiscoveryInterface,
-	// scheme *runtime.Scheme) ([]metav1.APIResource, error) {
-	// set := newResourceSet(alt.client.Scheme())
-
-	// _, apiResourceLists, err := alt.clientset.DiscoveryClient.ServerGroupsAndResources()
-	// if err != nil {
-	// 	return err
-	// }
-
 	for _, apiResourceList := range resList {
 		gv, err := schema.ParseGroupVersion(apiResourceList.GroupVersion)
 		if err != nil {
@@ -255,7 +229,7 @@ func (alt *AltReconciler) Start(ctx context.Context) error {
 			return nil
 		default:
 			time.Sleep(10 * time.Second)
-			if err := alt.asdasd(ctx); err != nil {
+			if err := alt.setWatchers(ctx); err != nil {
 				alt.logger.Error(err, "error fetching and validating resource types")
 			}
 		}
@@ -271,4 +245,27 @@ func (alt *AltReconciler) getNamespacedResourcesGVK(resources []metav1.APIResour
 		}
 	}
 	return namespacedResources
+}
+
+func (alt *AltReconciler) unstructuredToTyped(obj *unstructured.Unstructured) (client.Object, error) {
+	typedResource, err := alt.lookUpType(obj)
+	if err != nil {
+		return nil, fmt.Errorf("looking up object type: %w", err)
+	}
+
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, typedResource); err != nil {
+		return nil, fmt.Errorf("converting unstructured to typed object: %w", err)
+	}
+
+	return typedResource.(client.Object), nil
+}
+
+func (alt *AltReconciler) lookUpType(obj *unstructured.Unstructured) (runtime.Object, error) {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	typedObj, err := alt.client.Scheme().New(gvk)
+	if err != nil {
+		return nil, fmt.Errorf("creating new object of type %s: %w", gvk, err)
+	}
+
+	return typedObj, nil
 }

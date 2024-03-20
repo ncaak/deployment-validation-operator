@@ -25,7 +25,6 @@ import (
 	"github.com/go-logr/logr"
 	osappsv1 "github.com/openshift/api/apps/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -136,21 +135,16 @@ func setupManager(log logr.Logger, opts options.Options) (manager.Manager, error
 
 	log.Info("Initialize Reconciler")
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
-	if err != nil {
-		return nil, fmt.Errorf("initializing discovery client: %w", err)
-	}
+	// gr, err := controller.NewGenericReconciler(mgr.GetClient(), discoveryClient, cmWatcher, validationEngine)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("initializing generic reconciler: %w", err)
+	// }
 
-	gr, err := controller.NewGenericReconciler(mgr.GetClient(), discoveryClient, cmWatcher, validationEngine)
-	if err != nil {
-		return nil, fmt.Errorf("initializing generic reconciler: %w", err)
-	}
+	// if err = gr.AddToManager(mgr); err != nil {
+	// 	return nil, fmt.Errorf("adding generic reconciler to manager: %w", err)
+	// }
 
-	if err = gr.AddToManager(mgr); err != nil {
-		return nil, fmt.Errorf("adding generic reconciler to manager: %w", err)
-	}
-
-	alt, err := controller.NewAltReconciler(mgr.GetClient(), mgr.GetConfig())
+	alt, err := controller.NewAltReconciler(mgr.GetClient(), mgr.GetConfig(), validationEngine)
 	if err != nil {
 		return nil, fmt.Errorf("initializing generic reconciler: %w", err)
 	}
